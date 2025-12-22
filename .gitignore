@@ -3,6 +3,7 @@ venv/
 datasets/
 models/
 results/
+mediapipe_models/
 
 flow.txt
 
