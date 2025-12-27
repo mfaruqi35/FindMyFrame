@@ -1,5 +1,4 @@
 numpy
-seaborn
 matplotlib
 pandas
 seaborn
@@ -9,8 +8,6 @@ mediapipe
 opencv-contrib-python
 scikit-learn
 scikit-image
-scipy
-tqdm
 jsonschema
 jupyter
 notebook

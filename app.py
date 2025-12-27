@@ -37,7 +37,6 @@ options = vision.FaceLandmarkerOptions(
 )
 face_landmarker = FaceLandmarker.create_from_options(options)
 
-# === Setup Model PyTorch ===
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = torch.load(MODEL_PATH, map_location=device, weights_only=False)
 model.eval()
@@ -250,6 +249,8 @@ while cap.isOpened():
     timestamp_ms = int(time.time() * 1000)
     results = face_landmarker.detect_for_video(mp_img, timestamp_ms)
 
+    clean_frame_for_screenshot = frame.copy()
+
     if results.face_landmarks:
         landmark = results.face_landmarks[0]
 
@@ -261,18 +262,15 @@ while cap.isOpened():
             GUIDE_RIGHT_EYE = (center_x + eye_dist, center_y - eye_y_offset)
             GUIDE_NOSE = (center_x, center_y + nose_y_offset)
 
-            # Green Area
             for pt in [GUIDE_LEFT_EYE, GUIDE_RIGHT_EYE, GUIDE_NOSE]:
                 cv2.circle(frame, pt, threshold, (92,234,20), 3)
             
-            # Blue point
             left_eye = (int(landmark[LEFT_EYE].x * w), int(landmark[LEFT_EYE].y * h))
             right_eye = (int(landmark[RIGHT_EYE].x * w), int(landmark[RIGHT_EYE].y * h))
             nose = (int(landmark[NOSE_TIP].x * w),   int(landmark[NOSE_TIP].y * h))
             for p in [left_eye, right_eye, nose]:
                 cv2.circle(frame, p, 8, (254,187,0), -1)
             
-            # Alighment Check
             if is_aligned(landmark, [GUIDE_LEFT_EYE, GUIDE_RIGHT_EYE, GUIDE_NOSE], threshold):
                 aligned_frames += 1
                 frame = draw_text(frame, "Tahan Posisimu!", (center_x - 200, center_y - 150),
@@ -296,6 +294,9 @@ while cap.isOpened():
                 aligned_frames = 0
 
         if state == "PREDICTED":
+            if current_glasses is not None:
+                clean_frame_for_screenshot = overlay_glasses(clean_frame_for_screenshot, current_glasses, landmark)
+            
             if len(thumb_list) > 0:
                 total_thumbs = len([t for t in thumb_list if t is not None])
                 if total_thumbs == 0:
@@ -316,7 +317,6 @@ while cap.isOpened():
                     if x + THUMB_WIDTH > w:
                         break 
                     
-                    # Background & highlight
                     cv2.rectangle(frame, (x-5, y-5), (x+THUMB_WIDTH+5, y+THUMB_HEIGHT+5), (60, 60, 60), -1)
                     if current_glasses is frames_dict[all_frames[idx]]:
                         cv2.rectangle(frame, (x-5, y-5), (x+THUMB_WIDTH+5, y+THUMB_HEIGHT+5), (0, 255, 255), 5)
@@ -335,7 +335,6 @@ while cap.isOpened():
             if current_glasses is not None:
                 frame = overlay_glasses(frame, current_glasses, landmark)
 
-            # Teks hasil & rekomendasi
             frame = draw_text(frame, f"Bentuk Wajah: {predicted_shape.upper()}", (50, 10), font_title, (255,255,255))
             
             rec = recommendations[predicted_shape]
@@ -353,10 +352,10 @@ while cap.isOpened():
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
-    elif key == ord(' '):
+    elif key == ord(' ') and state == "PREDICTED":
         screenshot_count += 1
         filename = f"./results/ar_result_{screenshot_count}.jpg"
-        cv2.imwrite(filename, frame)
+        cv2.imwrite(filename, clean_frame_for_screenshot)
         print(f"Screenshot AR tersimpan: {filename}")
     elif '1' <= chr(key) <= '9':
         idx = int(chr(key)) - 1
@@ -366,7 +365,3 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
-
-# Tampilkan screenshot terakhir di notebook
-if screenshot_count > 0:
-    display(IPImage(f"ar_result_{screenshot_count}.jpg", width=700))
